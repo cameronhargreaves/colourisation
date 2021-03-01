@@ -1,4 +1,3 @@
-
 import os
 from options.train_options import TrainOptions
 from models import create_model
@@ -13,27 +12,39 @@ import torchvision.transforms as transforms
 from util import util
 import numpy as np
 
-
 if __name__ == '__main__':
-    sample_ps = [1., .125, .03125]
-    to_visualize = ['gray', 'hint', 'hint_ab', 'fake_entr', 'real', 'fake_reg', 'real_ab', 'fake_ab_reg', ]
+    # sample_ps = [1., .125, .03125]
+    # to_visualize = ['gray', 'hint', 'hint_ab', 'fake_entr', 'real', 'fake_reg', 'real_ab', 'fake_ab_reg', ]
+    to_visualize = ['gray', 'real', 'fake_reg']
+    sample_ps = [0.3125]
     S = len(sample_ps)
 
     opt = TrainOptions().parse()
     opt.load_model = True
-    opt.num_threads = 1   # test code only supports num_threads = 1
+    opt.num_threads = 1  # test code only supports num_threads = 1
     opt.batch_size = 1  # test code only supports batch_size = 1
     opt.display_id = -1  # no visdom display
     opt.phase = 'val'
-    opt.dataroot = './dataset/ilsvrc2012/%s/' % opt.phase
+    opt.dataroot = '/data/cifar10png/test'
     opt.serial_batches = True
     opt.aspect_ratio = 1.
 
-    dataset = torchvision.datasets.ImageFolder(opt.dataroot,
-                                               transform=transforms.Compose([
-                                                   transforms.Resize((opt.loadSize, opt.loadSize)),
-                                                   transforms.ToTensor()]))
-    dataset_loader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=not opt.serial_batches)
+    testset = torchvision.datasets.CIFAR10(root='./data', train=True,
+                                           download=True, transform=transforms.Compose([
+            transforms.Resize((opt.loadSize, opt.loadSize)),
+            transforms.ToTensor()]))
+
+    # testset = torchvision.datasets.ImageFolder(opt.dataroot,
+    #                                            transform=transforms.Compose([
+    #                                                transforms.Resize((opt.loadSize, opt.loadSize)),
+    #                                                transforms.ToTensor()]))
+
+    # testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True,transform=transforms.Compose([
+    #                                                transforms.Resize((opt.loadSize, opt.loadSize)),
+    #                                                transforms.ToTensor()]))
+
+    testloader = torch.utils.data.DataLoader(testset, batch_size=opt.batch_size, shuffle=False,
+                                             num_workers=int(opt.num_threads))
 
     model = create_model(opt)
     model.setup(opt)
@@ -47,13 +58,13 @@ if __name__ == '__main__':
     psnrs = np.zeros((opt.how_many, S))
     entrs = np.zeros((opt.how_many, S))
 
-    for i, data_raw in enumerate(dataset_loader):
+    for i, data_raw in enumerate(testloader):
         data_raw[0] = data_raw[0].cuda()
-        data_raw[0] = util.crop_mult(data_raw[0], mult=8)
+        # data_raw[0] = util.crop_mult(data_raw[0], mult=8)
 
         # with no points
         for (pp, sample_p) in enumerate(sample_ps):
-            img_path = [string.replace('%08d_%.3f' % (i, sample_p), '.', 'p')]
+            img_path = [str.replace('%08d_%.3f' % (i, sample_p), '.', 'p')]
             data = util.get_colorization_data(data_raw, opt, ab_thresh=0., p=sample_p)
 
             model.set_input(data)
@@ -63,6 +74,7 @@ if __name__ == '__main__':
             psnrs[i, pp] = util.calculate_psnr_np(util.tensor2im(visuals['real']), util.tensor2im(visuals['fake_reg']))
             entrs[i, pp] = model.get_current_losses()['G_entr']
 
+            # print(img_path)
             save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize)
 
         if i % 5 == 0:

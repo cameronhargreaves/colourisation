@@ -12,20 +12,11 @@ from util import util
 if __name__ == '__main__':
     opt = TrainOptions().parse()
 
-    opt.dataroot = './dataset/ilsvrc2012/%s/' % opt.phase
-    dataset = torchvision.datasets.ImageFolder(opt.dataroot,
-                                               transform=transforms.Compose([
-                                                   transforms.RandomChoice([transforms.Resize(opt.loadSize, interpolation=1),
-                                                                            transforms.Resize(opt.loadSize, interpolation=2),
-                                                                            transforms.Resize(opt.loadSize, interpolation=3),
-                                                                            transforms.Resize((opt.loadSize, opt.loadSize), interpolation=1),
-                                                                            transforms.Resize((opt.loadSize, opt.loadSize), interpolation=2),
-                                                                            transforms.Resize((opt.loadSize, opt.loadSize), interpolation=3)]),
-                                                   transforms.RandomChoice([transforms.RandomResizedCrop(opt.fineSize, interpolation=1),
-                                                                            transforms.RandomResizedCrop(opt.fineSize, interpolation=2),
-                                                                            transforms.RandomResizedCrop(opt.fineSize, interpolation=3)]),
-                                                   transforms.RandomHorizontalFlip(),
-                                                   transforms.ToTensor()]))
+    dataset = torchvision.datasets.CIFAR10(root='./data', train=True,
+                                            download=True)
+    #
+    # opt.dataroot = './dataset/ilsvrc2012/%s/' % opt.phase
+
     dataset_loader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=int(opt.num_threads))
 
     dataset_size = len(dataset)
