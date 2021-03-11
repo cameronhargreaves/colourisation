@@ -25,14 +25,18 @@ if __name__ == '__main__':
     opt.batch_size = 1  # test code only supports batch_size = 1
     opt.display_id = -1  # no visdom display
     opt.phase = 'val'
-    opt.dataroot = '/data/cifar10png/test'
+    # opt.dataroot = '/data/cifar10png/test'
     opt.serial_batches = True
     opt.aspect_ratio = 1.
 
-    testset = torchvision.datasets.CIFAR10(root='./data', train=True,
-                                           download=True, transform=transforms.Compose([
+    testset = torchvision.datasets.ImageFolder(root='/home/cam/dataset/', transform=transforms.Compose([
             transforms.Resize((opt.loadSize, opt.loadSize)),
             transforms.ToTensor()]))
+
+    # testset = torchvision.datasets.CIFAR10(root='./data', train=True,
+    #                                        download=True, transform=transforms.Compose([
+    #         transforms.Resize((opt.loadSize, opt.loadSize)),
+    #         transforms.ToTensor()]))
 
     # testset = torchvision.datasets.ImageFolder(opt.dataroot,
     #                                            transform=transforms.Compose([
@@ -72,7 +76,7 @@ if __name__ == '__main__':
             visuals = util.get_subset_dict(model.get_current_visuals(), to_visualize)
 
             psnrs[i, pp] = util.calculate_psnr_np(util.tensor2im(visuals['real']), util.tensor2im(visuals['fake_reg']))
-            entrs[i, pp] = model.get_current_losses()['G_entr']
+            # entrs[i, pp] = model.get_current_losses()['G_entr']
 
             # print(img_path)
             save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize)

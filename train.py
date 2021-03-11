@@ -12,12 +12,18 @@ from util import util
 if __name__ == '__main__':
     opt = TrainOptions().parse()
 
-    dataset = torchvision.datasets.CIFAR10(root='./data', train=True,
-                                            download=True)
+    # dataset = torchvision.datasets.CIFAR10(root='./data', train=True,
+    #                                         download=True)
     #
     # opt.dataroot = './dataset/ilsvrc2012/%s/' % opt.phase
 
-    dataset_loader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=int(opt.num_threads))
+    # dataset = torchvision.datasets.ImageFolder(root='/home/cam/Downloads/kag2/')
+
+    dataset = torchvision.datasets.ImageFolder(root='/home/cam/dataset/train_0', transform=transforms.Compose([
+            transforms.Resize((opt.loadSize, opt.loadSize)),
+            transforms.ToTensor()]))
+
+    dataset_loader = torch.utils.data.DataLoader(dataset, batch_size=8, shuffle=True, num_workers=int(opt.num_threads))
 
     dataset_size = len(dataset)
     print('#training images = %d' % dataset_size)
@@ -33,6 +39,7 @@ if __name__ == '__main__':
         epoch_start_time = time.time()
         iter_data_time = time.time()
         epoch_iter = 0
+
 
         # for i, data in enumerate(dataset):
         for i, data_raw in enumerate(dataset_loader):
