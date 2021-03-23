@@ -14,6 +14,7 @@ import torchvision.transforms as transforms
 # pip install pillow
 from PIL import Image, ImageTk
 
+
 class Window(Frame):
     def __init__(self, master=None):
         Frame.__init__(self, master)
@@ -22,65 +23,64 @@ class Window(Frame):
 
 
 def select_photos():
-        to_visualize = ['gray', 'real', 'fake_reg']
-        opt = TrainOptions().parse()
-        opt.load_model = True
-        opt.num_threads = 1  # test code only supports num_threads = 1
-        opt.batch_size = 1  # test code only supports batch_size = 1
-        opt.display_id = -1  # no visdom display
-        opt.phase = 'val'
-        # opt.dataroot = '/data/cifar10png/test'
-        opt.serial_batches = True
-        opt.aspect_ratio = 1.
+    to_visualize = ['gray', 'real', 'fake_reg']
+    opt = TrainOptions().parse()
+    opt.load_model = True
+    opt.num_threads = 1
+    opt.batch_size = 1
+    opt.display_id = -1
+    opt.phase = 'val'
+    # opt.dataroot = '/data/cifar10png/test'
+    opt.serial_batches = True
+    opt.aspect_ratio = 1.
 
-        model = create_model(opt)
-        model.setup(opt)
-        model.eval()
+    model = create_model(opt)
+    model.setup(opt)
 
-        # tensor_image = tensor_image.cuda()
-        sample_ps = 0.03125
-        data_raw = ['']*10
+    # tensor_image = tensor_image.cuda()
+    sample_ps = 0.031253
+    data_raw = [None] * 10
 
-        # loader = transforms.Compose(transforms.ToTensor())
-        # raw_image = Image.open(args.input)
-        # # tensor_image = TF.to_tensor(raw_image)
-        # tensor_image = loader(raw_image.float())
-        # tensor_image = raw_image.unsqueeze(0)
-        # data_raw[0] = tensor_image.cuda()
+    # loader = transforms.Compose(transforms.ToTensor())
+    # raw_image = Image.open(args.input)
+    # # tensor_image = TF.to_tensor(raw_image)
+    # tensor_image = loader(raw_image.float())
+    # tensor_image = raw_image.unsqueeze(0)
+    # data_raw[0] = tensor_image.cuda()
 
-        print(args.input)
-        tensor_image = Image.open(args.input)
-        tensor_image = ToTensor() (tensor_image).unsqueeze(0)
-        # tensor_image = Variable(tensor_image)
-        data_raw[0] = tensor_image
+    print(args.input)
+    tensor_image = Image.open(args.input).convert('RGB')
+    tensor_image = ToTensor()(tensor_image).unsqueeze(0)
+    data_raw[0] = tensor_image.cuda()
 
-        model.test(True)
-        data = util.get_colorization_data(data_raw, opt, ab_thresh=0., p=sample_ps)
-        model.set_input(data)
-        # model.test()
-        visuals = util.get_subset_dict(model.get_current_visuals(), to_visualize)
+    # this also might be the error
+    data = util.get_colorization_data(data_raw, opt, ab_thresh=0., p=sample_ps)
 
-        #output images
-        raw_image = Image.open(Image.fromarray(util.tensor2im(visuals['real'])))
-        image = raw_image.resize((450, 450), Image.ANTIALIAS)
-        image = ImageTk.PhotoImage(image)
-        label = tk.Label(image=image)
-        label.photo = image  # assign to class variable to resolve problem with bug in `PhotoImage`
-        label.grid(row=1, column=1)
-        all_labels.append(label)
+    # this is potentially where the error is, should set all the data
+    model.set_input(data)
 
-        raw_image = Image.open(Image.fromarray(util.tensor2im(visuals['fake_reg'])))
-        image = raw_image.resize((450, 450), Image.ANTIALIAS)
-        image = ImageTk.PhotoImage(image)
-        label = tk.Label(image=image)
-        label.photo = image  # assign to class variable to resolve problem with bug in `PhotoImage`
-        label.grid(row=1, column=2)
-        all_labels.append(label)
+    # model.eval()
+    model.optimize_parameters()
 
-        # entrs[i, pp] = model.get_current_losses()['G_entr']
+    # gets the visuals from the model
+    visuals = util.get_subset_dict(model.get_current_visuals(), to_visualize)
 
-        # print(img_path)
-        # save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize)
+    # output images
+    raw_image = Image.open(Image.fromarray(util.tensor2im(visuals['real'])))
+    image = raw_image.resize((450, 450), Image.ANTIALIAS)
+    image = ImageTk.PhotoImage(image)
+    label = tk.Label(image=image)
+    label.photo = image  # assign to class variable to resolve problem with bug in `PhotoImage`
+    label.grid(row=1, column=1)
+    all_labels.append(label)
+
+    raw_image = Image.open(Image.fromarray(util.tensor2im(visuals['fake_reg'])))
+    image = raw_image.resize((450, 450), Image.ANTIALIAS)
+    image = ImageTk.PhotoImage(image)
+    label = tk.Label(image=image)
+    label.photo = image
+    label.grid(row=1, column=2)
+    all_labels.append(label)
 
 
 if __name__ == '__main__':
