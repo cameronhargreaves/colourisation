@@ -48,8 +48,8 @@ def select_photos():
     # tensor_image = raw_image.unsqueeze(0)
     # data_raw[0] = tensor_image.cuda()
 
-    print(args.input)
-    tensor_image = Image.open(args.input).convert('RGB')
+    print(opt.input)
+    tensor_image = Image.open(opt.input).convert('RGB')
     tensor_image = ToTensor()(tensor_image).unsqueeze(0)
     data_raw[0] = tensor_image.cuda()
 
@@ -60,7 +60,7 @@ def select_photos():
     model.set_input(data)
 
     # model.eval()
-    model.optimize_parameters()
+    model.test(True)
 
     # gets the visuals from the model
     visuals = util.get_subset_dict(model.get_current_visuals(), to_visualize)
@@ -84,7 +84,6 @@ def select_photos():
 
 
 if __name__ == '__main__':
-    args = TrainOptions().parse()
     all_labels = []
     root = Tk()
     app = Window(root)
