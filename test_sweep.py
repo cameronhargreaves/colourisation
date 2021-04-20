@@ -20,7 +20,11 @@ if __name__ == '__main__':
     opt.batch_size = 1  # test code only supports batch_size = 1
     opt.display_id = -1  # no visdom display
     opt.phase = 'test'
+
+    # opt.dataroot = './dataset/ilsvrc2012/%s/' % opt.phase
+
     opt.dataroot = './dataset/ilsvrc2012/%s/' % opt.phase
+
     opt.loadSize = 256
     opt.how_many = 1000
     opt.aspect_ratio = 1.0
@@ -33,11 +37,16 @@ if __name__ == '__main__':
     num_points = np.unique(num_points.astype('int'))
     N = len(num_points)
 
-    dataset = torchvision.datasets.ImageFolder(opt.dataroot,
-                                               transform=transforms.Compose([
-                                                   transforms.Resize((opt.loadSize, opt.loadSize)),
-                                                   transforms.ToTensor()]))
-    dataset_loader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=not opt.serial_batches)
+    dataset = torchvision.datasets.ImageFolder(root='/home/cam/dataset/train_0', transform=transforms.Compose([
+            transforms.Resize((opt.loadSize, opt.loadSize)),
+            transforms.ToTensor()]))
+
+    dataset_loader = torch.utils.data.DataLoader(dataset, batch_size=8, shuffle=True, num_workers=int(opt.num_threads))
+    # dataset = torchvision.datasets.ImageFolder(opt.dataroot,
+    #                                            transform=transforms.Compose([
+    #                                                transforms.Resize((opt.loadSize, opt.loadSize)),
+    #                                                transforms.ToTensor()]))
+    # dataset_loader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=not opt.serial_batches)
 
     model = create_model(opt)
     model.setup(opt)
@@ -50,7 +59,8 @@ if __name__ == '__main__':
 
     psnrs = np.zeros((opt.how_many, N))
 
-    bar = pb.ProgressBar(max_value=opt.how_many)
+    # bar = pb.ProgressBar(max_value=opt.how_many)
+    # bar = pb.ProgressBar(max_value=opt.how_many)
     for i, data_raw in enumerate(dataset_loader):
         data_raw[0] = data_raw[0].cuda()
         data_raw[0] = util.crop_mult(data_raw[0], mult=8)
@@ -67,6 +77,8 @@ if __name__ == '__main__':
 
         if i == opt.how_many - 1:
             break
+
+        # bar.update(i)
 
         bar.update(i)
 

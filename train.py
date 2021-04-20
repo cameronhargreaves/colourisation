@@ -19,7 +19,7 @@ if __name__ == '__main__':
 
     # dataset = torchvision.datasets.ImageFolder(root='/home/cam/Downloads/kag2/')
 
-    dataset = torchvision.datasets.ImageFolder(root='/home/cam/dataset/train_0', transform=transforms.Compose([
+    dataset = torchvision.datasets.ImageFolder(root='/data/cifar10png/train/', transform=transforms.Compose([
             transforms.Resize((opt.loadSize, opt.loadSize)),
             transforms.ToTensor()]))
 
@@ -35,11 +35,11 @@ if __name__ == '__main__':
     visualizer = Visualizer(opt)
     total_steps = 0
 
+    # for specified epoch range
     for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay):
         epoch_start_time = time.time()
         iter_data_time = time.time()
         epoch_iter = 0
-
 
         # for i, data in enumerate(dataset):
         for i, data_raw in enumerate(dataset_loader):

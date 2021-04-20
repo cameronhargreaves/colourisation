@@ -3,11 +3,17 @@ from options.train_options import TrainOptions
 from models import create_model
 from util.visualizer import save_images
 from util import html
+import math
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 import string
 import torch
 import torchvision
 import torchvision.transforms as transforms
+
+import datetime as dt
+import matplotlib.pyplot as plt
 
 from util import util
 import numpy as np
@@ -15,8 +21,15 @@ import numpy as np
 if __name__ == '__main__':
     # sample_ps = [1., .125, .03125]
     # to_visualize = ['gray', 'hint', 'hint_ab', 'fake_entr', 'real', 'fake_reg', 'real_ab', 'fake_ab_reg', ]
+    
     to_visualize = ['gray', 'real', 'fake_reg']
-    sample_ps = [0.3125]
+    sample_ps = [0.03125]
+
+    # num_points = np.round(10**np.arange(-.1, 2.8, .1))
+    # num_points[0] = 0
+    # num_points = np.unique(num_points.astype('int'))
+    # N = len(num_points)
+
     S = len(sample_ps)
 
     opt = TrainOptions().parse()
@@ -28,8 +41,9 @@ if __name__ == '__main__':
     # opt.dataroot = '/data/cifar10png/test'
     opt.serial_batches = True
     opt.aspect_ratio = 1.
+    opt.how_many = 56000
 
-    testset = torchvision.datasets.ImageFolder(root='/home/cam/dataset/', transform=transforms.Compose([
+    testset = torchvision.datasets.ImageFolder(root='/home/cam/dataset/train_0/', transform=transforms.Compose([
             transforms.Resize((opt.loadSize, opt.loadSize)),
             transforms.ToTensor()]))
 
@@ -59,42 +73,96 @@ if __name__ == '__main__':
     webpage = html.HTML(web_dir, 'Experiment = %s, Phase = %s, Epoch = %s' % (opt.name, opt.phase, opt.which_epoch))
 
     # statistics
-    psnrs = np.zeros((opt.how_many, S))
+    psnrs = np.zeros(opt.how_many)
+    mses = np.zeros(opt.how_many)
+    maes = np.zeros(opt.how_many)
+    min_mae = 10000000
+    min_mse = 10000000
+    min_psnr = 10000000
+    max_mae = 0
+    max_mse = 0
+    max_psnr = 0
+
+    # psnrs = np.zeros((opt.how_many, N))
+
     entrs = np.zeros((opt.how_many, S))
+    f = open("google_open_images_values.txt", "a")
 
     for i, data_raw in enumerate(testloader):
-        data_raw[0] = data_raw[0].cuda()
-        # data_raw[0] = util.crop_mult(data_raw[0], mult=8)
+        try :
+            data_raw[0] = data_raw[0].cuda()
+            # data_raw[0] = util.crop_mult(data_raw[0], mult=8)
 
-        # with no points
-        for (pp, sample_p) in enumerate(sample_ps):
-            img_path = [str.replace('%08d_%.3f' % (i, sample_p), '.', 'p')]
-            data = util.get_colorization_data(data_raw, opt, ab_thresh=0., p=sample_p)
+            # with no points
+            # for nn in range(N):
+            for (pp, sample_p) in enumerate(sample_ps):
+                img_path = [str.replace('%08d_%.3f' % (i, sample_p), '.', 'p')]
+                data = util.get_colorization_data(data_raw, opt, ab_thresh=0., p=sample_p)
+                # data = util.get_colorization_data(data_raw, opt, ab_thresh=0., num_points=num_points[nn])
 
-            model.set_input(data)
-            model.test(True)  # True means that losses will be computed
-            visuals = util.get_subset_dict(model.get_current_visuals(), to_visualize)
+                model.set_input(data)
+                model.test(True)  # True means that losses will be computed
+                visuals = util.get_subset_dict(model.get_current_visuals(), to_visualize)
+                psnrs[i] = util.calculate_psnr_np(util.tensor2im(visuals['real']), util.tensor2im(visuals['fake_reg']))
+                mses[i] = util.calculate_mse(util.tensor2im(visuals['real']), util.tensor2im(visuals['fake_reg']))
+                maes[i] =util.calculate_mae(util.tensor2im(visuals['real']),util.tensor2im(visuals['fake_reg']))
 
-            psnrs[i, pp] = util.calculate_psnr_np(util.tensor2im(visuals['real']), util.tensor2im(visuals['fake_reg']))
-            # entrs[i, pp] = model.get_current_losses()['G_entr']
+                if (psnrs[i] > max_psnr) :
+                    max_psnr = psnrs[i]
 
-            # print(img_path)
-            save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize)
+                if (psnrs[i] < min_psnr) :
+                    min_psnr = psnrs[i]
 
-        if i % 5 == 0:
-            print('processing (%04d)-th image... %s' % (i, img_path))
+                if (mses[i] < min_mse):
+                    min_mse = mses[i]
+
+                if (mses[i] > max_mse):
+                    max_mse = mses[i]
+
+                if (maes[i] < min_mae):
+                    min_mae = maes[i]
+
+                if (maes[i] > max_mae) :
+                    max_mae = maes[i]
+
+                # entrs[i, pp] = model.get_current_losses()['G_entr']
+
+                # save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize)
+        except :
+            continue
+
+        if i % 100 == 0:
+            print('.......................processing data - ' + str(math.trunc((i / opt.how_many) * 100)) + '% .......................', end="\r")
+            # print('processing (%04d)-th image... %s' % (i, img_path))
+
+        print('.......................processing file - ' + str(i) +' out of ' + str(opt.how_many) + ' ....................... PSNR - ' + str(psnrs[i]), end="\r")
+        f.write('\nImage ' + str(i) + ' |  PSNR - ' + str(psnrs[i]) + ' | MSE - ' + str(mses[i]) + ' | MAE - ' + str(maes[i]))
 
         if i == opt.how_many - 1:
             break
 
-    webpage.save()
 
+    f.close()
     # Compute and print some summary statistics
-    psnrs_mean = np.mean(psnrs, axis=0)
+    psnrs_mean = np.mean(psnrs)
+    maes_mean = np.mean(maes)
+    mses_mean = np.mean(mses)
+
     psnrs_std = np.std(psnrs, axis=0) / np.sqrt(opt.how_many)
+    maes_std = np.std(maes, axis=0) / np.sqrt(opt.how_many)
+    mses_std = np.std(mses, axis=0) / np.sqrt(opt.how_many)
 
-    entrs_mean = np.mean(entrs, axis=0)
-    entrs_std = np.std(entrs, axis=0) / np.sqrt(opt.how_many)
+    print('\nPSNR Mean : ' + str(psnrs_mean))
+    print('\nPSNR Max - ' + str(max_psnr))
+    print('\nPSNR Min - ' + str(min_psnr))
+    print('\nPSNR Standard Deviation - ' + str(psnrs_std))
 
-    for (pp, sample_p) in enumerate(sample_ps):
-        print('p=%.3f: %.2f+/-%.2f' % (sample_p, psnrs_mean[pp], psnrs_std[pp]))
+    print('\nMAE Mean : ' + str(maes_mean))
+    print('\nMAE Min- ' + str(min_mae))
+    print('\nMAE Max - ' + str(max_mae))
+    print('\nMAE Standard Deviation - ' + str(maes_std))
+
+    print('\nMSE Mean : ' + str(mses_mean))
+    print('\nMinimum MSE- ' + str(min_mse))
+    print('\nMaximum MSE- ' + str(max_mse))
+    print('\nMSE Standard Deviation - ' + str(mses_std))
