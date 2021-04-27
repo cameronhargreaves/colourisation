@@ -43,7 +43,7 @@ if __name__ == '__main__':
     opt.aspect_ratio = 1.
     opt.how_many = 56000
 
-    testset = torchvision.datasets.ImageFolder(root='/home/cam/dataset/train_0/', transform=transforms.Compose([
+    testset = torchvision.datasets.ImageFolder(root='/home/cam/Desktop/datasets/google/', transform=transforms.Compose([
             transforms.Resize((opt.loadSize, opt.loadSize)),
             transforms.ToTensor()]))
 
