@@ -131,6 +131,8 @@ class L1Loss(nn.Module):
         super(L1Loss, self).__init__()
 
     def __call__(self, in0, in1):
+        print(in0.size())
+        print(in1.size())
         return torch.sum(torch.abs(in0 - in1), dim=1, keepdim=True)
 
 
@@ -345,6 +347,7 @@ class SIGGRAPHGenerator(nn.Module):
         self.softmax = nn.Sequential(*[nn.Softmax(dim=1), ])
 
     def forward(self, input_A, input_B, mask_B):
+        ## cat result - torch.Size([8, 9, 256, 256])
         conv1_2 = self.model1(torch.cat((input_A, input_B, mask_B), dim=1))
         conv2_2 = self.model2(conv1_2[:, :, ::2, ::2])
         conv3_3 = self.model3(conv2_2[:, :, ::2, ::2])
@@ -550,7 +553,6 @@ class UnetSkipConnectionBlock(nn.Module):
             return self.model(x)
         else:
             return torch.cat([x, self.model(x)], 1)
-
 
 # Defines the PatchGAN discriminator with the specified arguments.
 class NLayerDiscriminator(nn.Module):

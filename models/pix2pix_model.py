@@ -114,10 +114,12 @@ class Pix2PixModel(BaseModel):
         self.hint_B = input['hint_B'].to(self.device)
         self.mask_B = input['mask_B'].to(self.device)
         self.mask_B_nc = self.mask_B + self.opt.mask_cent
-
         self.real_B_enc = util.encode_ab_ind(self.real_B[:, :, ::4, ::4], self.opt)
 
     def forward(self):
+        # print(self.real_A.size())
+        # print(self.hint_B.size())
+        # print(self.mask_B.size())
         (self.fake_B_class, self.fake_B_reg) = self.netG(self.real_A, self.hint_B, self.mask_B)
         # if(self.opt.classification):
         self.fake_B_dec_max = self.netG.module.upsample4(util.decode_max_ab(self.fake_B_class, self.opt))
@@ -159,12 +161,9 @@ class Pix2PixModel(BaseModel):
         self.loss_G_entr_hint = torch.mean(self.fake_B_entr.type(torch.cuda.FloatTensor) * self.mask_B_nc.type(torch.cuda.FloatTensor)) / mask_avg  # entropy of predicted distribution at hint points
 
         # regression statistics
-        self.loss_G_L1_max = 10 * torch.mean(self.criterionL1(self.fake_B_dec_max.type(torch.cuda.FloatTensor),
-                                                              self.real_B.type(torch.cuda.FloatTensor)))
-        self.loss_G_L1_mean = 10 * torch.mean(self.criterionL1(self.fake_B_dec_mean.type(torch.cuda.FloatTensor),
-                                                               self.real_B.type(torch.cuda.FloatTensor)))
-        self.loss_G_L1_reg = 10 * torch.mean(self.criterionL1(self.fake_B_reg.type(torch.cuda.FloatTensor),
-                                                              self.real_B.type(torch.cuda.FloatTensor)))
+        self.loss_G_L1_max = 10 * torch.mean(self.criterionL1(self.fake_B_dec_max.type(torch.cuda.FloatTensor), self.real_B.type(torch.cuda.FloatTensor)))
+        self.loss_G_L1_mean = 10 * torch.mean(self.criterionL1(self.fake_B_dec_mean.type(torch.cuda.FloatTensor), self.real_B.type(torch.cuda.FloatTensor)))
+        self.loss_G_L1_reg = 10 * torch.mean(self.criterionL1(self.fake_B_reg.type(torch.cuda.FloatTensor), self.real_B.type(torch.cuda.FloatTensor)))
 
         # L1 loss at given points
         self.loss_G_fake_real = 10 * torch.mean(self.criterionL1(self.fake_B_reg * self.mask_B_nc, self.real_B * self.mask_B_nc).type(torch.cuda.FloatTensor)) / mask_avg
