@@ -4,6 +4,8 @@ import numpy as np
 from PIL import Image
 import os
 from collections import OrderedDict
+from skimage import color
+from skimage import io
 from IPython import embed
 
 # Converts a Tensor into an image array (numpy)
@@ -184,26 +186,61 @@ def lab2rgb(lab_rs, opt):
     ab = lab_rs[:,1:,:,:]*opt.ab_norm
     lab = torch.cat((l,ab),dim=1)
     out = xyz2rgb(lab2xyz(lab))
+
+
     # if(torch.sum(torch.isnan(out))>0):
         # print('lab2rgb')
         # embed()
     return out
 
+
+def rgb2gray(rgb,opt):
+    # mask = (rgb > .04045).type(torch.FloatTensor)
+    #
+    # if(rgb.is_cuda):
+    #     mask = mask.cuda()
+    #
+    # r = .180423*rgb[:,0,:,:]
+    # g = .072169*rgb[:,1,:,:]
+    # b = .950227*rgb[:,2,:,:]
+    #
+    # out = torch.cat((r[:,None,:,:],g[:,None,:,:],b[:,None,:,:]),dim=1)
+    # out = torch.max(rgb,torch.zeros_like(rgb)) # sometimes reaches a small negative number, which causes NaNs
+    #
+    # out = torch.cat((r,g,b),dim=1)
+
+    #code creates 3 channel RGB greyscale
+
+    lab = rgb2lab(rgb, opt)
+
+    l = lab[:,[0],:,:]
+    return l
+
+
 def get_colorization_data(data_raw, opt, ab_thresh=5., p=.125, num_points=None):
     data = {}
 
-    data_lab = rgb2lab(data_raw[0], opt)
-
+    # data_lab = rgb2lab(data_raw[0], opt)
+    # data['A'] = data_lab[:,[0,],:,:]
     #sets the data and b channels
-    data['A'] = data_lab[:,[0,],:,:]
-    data['B'] = data_lab[:,1:,:,:]
+    data['A'] = rgb2gray(data_raw[0],opt)
+    data['B'] = data_raw[0]
+
+    # print(data['A'])
+    # data['B'] = data_lab[:,1:,:,:]
+
+    print(data['A'].size())
+    print(data['B'].size())
 
     if(ab_thresh > 0): # mask out grayscale images
         thresh = 1.*ab_thresh/opt.ab_norm
         mask = torch.sum(torch.abs(torch.max(torch.max(data['B'],dim=3)[0],dim=2)[0]-torch.min(torch.min(data['B'],dim=3)[0],dim=2)[0]),dim=1) >= thresh
 
+        #a is greyscale
         data['A'] = data['A'][mask,:,:,:]
+        # b is colour
         data['B'] = data['B'][mask,:,:,:]
+
         # print('Removed %i points'%torch.sum(mask==0).numpy())
         if(torch.sum(mask)==0):
             return None
@@ -247,8 +284,6 @@ def add_color_patches_rand_gt(data,opt,p=.125,num_points=None,use_avg=True,samp=
                 h = np.random.randint(H-P+1)
                 w = np.random.randint(W-P+1)
 
-
-
             # add color point
             if(use_avg):
                 # embed()
@@ -289,8 +324,12 @@ def encode_ab_ind(data_ab, opt):
     # OUTPUTS
     #   data_q    Nx1xHxW \in [0,Q)
 
-    data_ab_rs = torch.round((data_ab*opt.ab_norm + opt.ab_max)/opt.ab_quant) # normalized bin number
-    data_q = data_ab_rs[:,[0],:,:]*opt.A + data_ab_rs[:,[1],:,:]
+    # data_ab_rs = torch.round((data_ab*opt.ab_norm + opt.ab_max)/opt.ab_quant) # normalized bin number
+    # data_q = data_ab_rs[:,[0],:,:]*opt.A + data_ab_rs[:,[1],:,:]
+
+
+    data_ab_rs = torch.round((data_ab*opt.ab_norm + opt.rgb_max)/opt.ab_quant) # normalized bin number
+    data_q = data_ab_rs[:,[0],:,:]*opt.A + data_ab_rs[:,[1],:,:] + data_ab_rs[:,[2],:,:]
     return data_q
 
 def decode_ind_ab(data_q, opt):
@@ -300,15 +339,31 @@ def decode_ind_ab(data_q, opt):
     # OUTPUTS
     #   data_ab     Nx2xHxW \in [-1,1]
 
-    data_a = data_q/opt.A
-    data_b = data_q - data_a*opt.A
-    data_ab = torch.cat((data_a,data_b),dim=1)
+    ## OLD CIELAB CODE - TAKEN OUT FOR RGB MODEL
+    # data_a = data_q / opt.A
+    # data_b = data_q - data_a * opt.A
+    # data_ab = torch.cat((data_a, data_b), dim=1)
+    #
+    # if (data_q.is_cuda):
+    #     type_out = torch.cuda.FloatTensor
+    # else:
+    #     type_out = torch.FloatTensor
+    # data_ab = ((data_ab.type(type_out) * opt.ab_quant) - opt.ab_max) / opt.ab_norm
+
+
+    print(data_q.size())
+    print(opt.A)
+    data_r = data_q
+    data_g = data_q
+    data_b = data_q
+    data_rgb = torch.cat((data_r,data_g,data_b),dim=1)
 
     if(data_q.is_cuda):
         type_out = torch.cuda.FloatTensor
     else:
         type_out = torch.FloatTensor
-    data_ab = ((data_ab.type(type_out)*opt.ab_quant) - opt.ab_max)/opt.ab_norm
+
+    data_ab = ((data_rgb.type(type_out)*opt.ab_quant) - opt.rgb_max)/opt.ab_norm
 
     return data_ab
 
@@ -329,20 +384,40 @@ def decode_mean(data_ab_quant, opt):
     # OUTPUTS
     #   data_ab_inf     Nx2xHxW \in [-1,1]
 
+    # OLD LAB CODE REMOVED RIGHT NOW FOR RGB MODEL
+    # (N,Q,H,W) = data_ab_quant.shape
+    # a_range = torch.range(-opt.ab_max, opt.ab_max, step=opt.ab_quant).to(data_ab_quant.device)[None,:,None,None]
+    # a_range = a_range.type(data_ab_quant.type())
+    #
+    # # reshape to AB space
+    # data_ab_quant = data_ab_quant.view((N,int(opt.A),int(opt.A),H,W))
+    # data_a_total = torch.sum(data_ab_quant,dim=2)
+    # data_b_total = torch.sum(data_ab_quant,dim=1)
+    #
+    # # matrix multiply
+    # data_a_inf = torch.sum(data_a_total * a_range,dim=1,keepdim=True)
+    # data_b_inf = torch.sum(data_b_total * a_range,dim=1,keepdim=True)
+    #
+    # data_ab_inf = torch.cat((data_a_inf,data_b_inf),dim=1)/opt.ab_norm
+
+
     (N,Q,H,W) = data_ab_quant.shape
     a_range = torch.range(-opt.ab_max, opt.ab_max, step=opt.ab_quant).to(data_ab_quant.device)[None,:,None,None]
     a_range = a_range.type(data_ab_quant.type())
 
     # reshape to AB space
     data_ab_quant = data_ab_quant.view((N,int(opt.A),int(opt.A),H,W))
-    data_a_total = torch.sum(data_ab_quant,dim=2)
+
+    data_r_total = torch.sum(data_ab_quant,dim=1)
+    data_g_total = torch.sum(data_ab_quant,dim=1)
     data_b_total = torch.sum(data_ab_quant,dim=1)
 
     # matrix multiply
-    data_a_inf = torch.sum(data_a_total * a_range,dim=1,keepdim=True)
+    data_r_inf = torch.sum(data_r_total * a_range,dim=1,keepdim=True)
+    data_g_inf = torch.sum(data_g_total * a_range,dim=1,keepdim=True)
     data_b_inf = torch.sum(data_b_total * a_range,dim=1,keepdim=True)
 
-    data_ab_inf = torch.cat((data_a_inf,data_b_inf),dim=1)/opt.ab_norm
+    data_ab_inf = torch.cat((data_r_inf, data_g_inf, data_b_inf),dim=1)/opt.ab_norm
 
     return data_ab_inf
 

@@ -45,6 +45,7 @@ class BaseOptions():
         parser.add_argument('--suffix', default='', type=str, help='customized suffix: opt.name = opt.name + suffix: e.g., {model}_{which_model_netG}_size{loadSize}')
         parser.add_argument('--ab_norm', type=float, default=110., help='colorization normalization factor')
         parser.add_argument('--ab_max', type=float, default=110., help='maximimum ab value')
+        parser.add_argument('--rgb_max', type=float, default=25., help='maximimum rgb value')
         parser.add_argument('--ab_quant', type=float, default=10., help='quantization factor')
         parser.add_argument('--l_norm', type=float, default=100., help='colorization normalization factor')
         parser.add_argument('--l_cent', type=float, default=50., help='colorization centering factor')
@@ -133,7 +134,7 @@ class BaseOptions():
                 opt.gpu_ids.append(id)
         if len(opt.gpu_ids) > 0:
             torch.cuda.set_device(opt.gpu_ids[0])
-        opt.A = 2 * opt.ab_max / opt.ab_quant + 1
+        opt.A = 2 * opt.rgb_max / opt.ab_quant + 1
         opt.B = opt.A
 
         self.opt = opt

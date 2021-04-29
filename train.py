@@ -19,7 +19,7 @@ if __name__ == '__main__':
 
     # dataset = torchvision.datasets.ImageFolder(root='/home/cam/Downloads/kag2/')
 
-    dataset = torchvision.datasets.ImageFolder(root='/data/cifar10png/train/', transform=transforms.Compose([
+    dataset = torchvision.datasets.ImageFolder(root='/home/cam/Desktop/datasets/cifar10png/', transform=transforms.Compose([
             transforms.Resize((opt.loadSize, opt.loadSize)),
             transforms.ToTensor()]))
 
@@ -30,7 +30,7 @@ if __name__ == '__main__':
 
     model = create_model(opt)
     model.setup(opt)
-    model.print_networks(True)
+    # model.print_networks(True)
 
     visualizer = Visualizer(opt)
     total_steps = 0
